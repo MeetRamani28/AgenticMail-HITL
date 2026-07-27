@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+langgraph
+langchain
+langchain-core
+langchain-groq
+langchain-community
+qdrant-client
+fastembed
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+requests
