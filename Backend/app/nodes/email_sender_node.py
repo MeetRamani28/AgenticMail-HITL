@@ -1,5 +1,5 @@
 from app.state.email_state import EmailState
-
+from app.core.gmail_service import gmail_service
 
 def send_email_node(state: EmailState) -> EmailState:
     """
@@ -9,16 +9,19 @@ def send_email_node(state: EmailState) -> EmailState:
     """
     final_email = state.get("revised_draft") or state.get("draft_response")
     recipient = state.get("sender")
-    subject = state.get("subject")
-    
-    print("=" * 60)
-    print(f"🚀 [Email Sender Node] SENDING EMAIL TO: {recipient}")
-    print(f"📌 SUBJECT: Re: {subject}")
-    print(f"📄 BODY:\n{final_email}")
-    print("=" * 60)
+    subject = f"Re: {state.get('subject')}"
+    thread_id = state.get("thread_id")
+
+    success = gmail_service.send_email(
+        to_email=recipient,
+        subject=subject,
+        body_text=final_email,
+        thread_id=thread_id
+    )
     
     return {
         **state,
-        "is_sent": True,
-        "status": "approved_and_sent"
+        "is_sent": success,
+        "status": "approved_and_sent" if success else "failed_to_send",
+        "error_message": None if success else "Failed to send via Gmail API"
     }

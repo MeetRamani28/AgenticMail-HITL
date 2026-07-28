@@ -5,6 +5,7 @@ from app.api.schemas import (
     HITLActionRequest,
     AgentStateResponse
 )
+from app.core.gmail_service import gmail_service
 
 router = APIRouter(prefix="/email-agent", tags=["Email Agent HITL Operations"])
 
@@ -150,3 +151,11 @@ async def get_thread_state(thread_id: str):
         iteration_count=state_values.get("iteration_count", 1),
         is_sent=state_values.get("is_sent", False)
     )
+
+@router.get("/fetch-inbox")
+async def fetch_inbox_messages():
+    """
+    Fetches a list of unread emails from the authenticated user's Gmail inbox.
+    """
+    unread = gmail_service.fetch_unread_emails()
+    return {"status": "success", "count": len(unread), "emails": unread}
