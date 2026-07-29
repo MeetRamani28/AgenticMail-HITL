@@ -6,7 +6,7 @@ from app.api.routes import router as api_router
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Autonomous Email Operations Agent with LangGraph Human-In-The-Loop (HITL) State Management"
+    description="AgenticMail-HITL Backend API"
 )
 
 app.add_middleware(
@@ -19,12 +19,10 @@ app.add_middleware(
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-
 @app.get("/")
 def root():
     return {
         "status": "online",
         "system": settings.PROJECT_NAME,
-        "version": settings.VERSION,
         "docs": "/docs"
     }

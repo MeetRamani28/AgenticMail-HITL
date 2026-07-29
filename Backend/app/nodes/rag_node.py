@@ -9,7 +9,8 @@ def retrieve_context_node(state: EmailState) -> EmailState:
     """
     subject = state.get("subject", "").lower()
     body = state.get("email_body", "").lower()
-    combined_text = f"{subject} {body}"
+    topic = state.get("topic", "").lower() if state.get("topic") else ""
+    combined_text = f"{subject} {body} {topic}"
     
     mock_policy_db = [
         {"keyword": "return", "policy": "Company Return Policy: Products can be returned within 30 days of purchase with original receipt for a full refund."},

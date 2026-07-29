@@ -8,6 +8,8 @@ import {
   Send,
   Sparkles,
 } from "lucide-react";
+import { motion } from "framer-motion";
+import toast from "react-hot-toast";
 
 interface Props {
   emailState: AgentStateResponse;
@@ -19,12 +21,20 @@ export const EmailDetailView: React.FC<Props> = ({
   onStateUpdated,
 }) => {
   const [feedback, setFeedback] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [showFeedbackInput, setShowFeedbackInput] = useState(false);
 
   const handleAction = async (action: "approve" | "revise" | "reject") => {
+    const loadingToast = toast.loading(
+      action === "approve"
+        ? "Sending approved email via Gmail API..."
+        : action === "revise"
+          ? "AI is revising draft based on feedback..."
+          : "Rejecting workflow...",
+    );
+
     try {
-      setLoading(true);
+      setActionLoading(true);
       const updated = await submitHITLAction({
         thread_id: emailState.thread_id,
         action,
@@ -33,29 +43,47 @@ export const EmailDetailView: React.FC<Props> = ({
       onStateUpdated(updated);
       setFeedback("");
       setShowFeedbackInput(false);
+
+      toast.dismiss(loadingToast);
+
+      if (action === "approve") {
+        toast.success("🚀 Email successfully sent to recipient!");
+      } else if (action === "revise") {
+        toast.success("✨ Draft revised successfully!");
+      } else {
+        toast.error("❌ Workflow rejected.");
+      }
     } catch (err) {
-      alert("Error executing HITL action");
+      toast.dismiss(loadingToast);
+      toast.error("Failed to execute HITL action.");
       console.error(err);
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   const currentDraft = emailState.revised_draft || emailState.draft_response;
 
   return (
-    <div className="flex-1 p-6 overflow-y-auto space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="flex-1 p-6 overflow-y-auto space-y-6"
+    >
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
         <div className="flex justify-between items-start mb-3">
           <div>
             <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md">
-              Inbound Email
+              {emailState.is_outbound
+                ? "Outbound Email Request"
+                : "Inbound Email"}
             </span>
             <h2 className="text-lg font-bold text-slate-800 mt-2">
               {emailState.subject}
             </h2>
             <p className="text-sm text-slate-500">
-              From:{" "}
+              {emailState.is_outbound ? "To: " : "From: "}{" "}
               <span className="font-medium text-slate-700">
                 {emailState.sender}
               </span>
@@ -74,7 +102,9 @@ export const EmailDetailView: React.FC<Props> = ({
           </span>
         </div>
         <div className="bg-slate-50 p-4 rounded-lg text-slate-700 text-sm whitespace-pre-wrap border border-slate-100">
-          {emailState.email_body}
+          {emailState.topic
+            ? `Topic/Instructions: ${emailState.topic}`
+            : emailState.email_body}
         </div>
       </div>
 
@@ -84,14 +114,20 @@ export const EmailDetailView: React.FC<Props> = ({
           <span>Retrieved Company Policies (RAG Context)</span>
         </div>
         <div className="space-y-2">
-          {emailState.retrieved_docs.map((doc, idx) => (
-            <div
-              key={idx}
-              className="bg-white p-3 rounded-lg text-xs text-indigo-950 border border-indigo-100 shadow-2xs"
-            >
-              {doc}
-            </div>
-          ))}
+          {emailState.retrieved_docs.length > 0 ? (
+            emailState.retrieved_docs.map((doc, idx) => (
+              <div
+                key={idx}
+                className="bg-white p-3 rounded-lg text-xs text-indigo-950 border border-indigo-100 shadow-2xs"
+              >
+                {doc}
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-slate-400">
+              No specific policies matched.
+            </p>
+          )}
         </div>
       </div>
 
@@ -120,8 +156,8 @@ export const EmailDetailView: React.FC<Props> = ({
               <div className="flex space-x-3">
                 <button
                   onClick={() => handleAction("approve")}
-                  disabled={loading}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 transition text-sm cursor-pointer"
+                  disabled={actionLoading}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 transition text-sm cursor-pointer shadow-sm disabled:opacity-50"
                 >
                   <CheckCircle className="w-4 h-4" />
                   <span>Approve & Send Email</span>
@@ -129,8 +165,8 @@ export const EmailDetailView: React.FC<Props> = ({
 
                 <button
                   onClick={() => setShowFeedbackInput(true)}
-                  disabled={loading}
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 transition text-sm cursor-pointer"
+                  disabled={actionLoading}
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 transition text-sm cursor-pointer shadow-sm disabled:opacity-50"
                 >
                   <RefreshCw className="w-4 h-4" />
                   <span>Request Edits / Give Feedback</span>
@@ -138,15 +174,19 @@ export const EmailDetailView: React.FC<Props> = ({
 
                 <button
                   onClick={() => handleAction("reject")}
-                  disabled={loading}
-                  className="bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-600 font-medium py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 transition text-sm cursor-pointer"
+                  disabled={actionLoading}
+                  className="bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-600 font-medium py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 transition text-sm cursor-pointer disabled:opacity-50"
                 >
                   <XCircle className="w-4 h-4" />
                   <span>Reject</span>
                 </button>
               </div>
             ) : (
-              <div className="space-y-3 bg-amber-50 p-4 rounded-lg border border-amber-200">
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="space-y-3 bg-amber-50 p-4 rounded-lg border border-amber-200"
+              >
                 <label className="block text-xs font-bold text-amber-900">
                   Provide Instructions to AI (Feedback Refinement Loop):
                 </label>
@@ -166,18 +206,18 @@ export const EmailDetailView: React.FC<Props> = ({
                   </button>
                   <button
                     onClick={() => handleAction("revise")}
-                    disabled={loading || !feedback.trim()}
-                    className="px-4 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-md flex items-center space-x-1 cursor-pointer"
+                    disabled={actionLoading || !feedback.trim()}
+                    className="px-4 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-md flex items-center space-x-1 cursor-pointer disabled:opacity-50"
                   >
                     <Send className="w-3 h-3" />
                     <span>Submit & Rewrite Draft</span>
                   </button>
                 </div>
-              </div>
+              </motion.div>
             )}
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };

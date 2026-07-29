@@ -15,7 +15,9 @@ class EmailState(TypedDict):
     email_id: str                       
     sender: str                         
     subject: str                        
-    email_body: str                     
+    email_body: str  
+    topic: Optional[str]  
+    is_outbound: bool                 
     retrieved_docs: List[str]          
     draft_response: str                 
     revised_draft: Optional[str]        

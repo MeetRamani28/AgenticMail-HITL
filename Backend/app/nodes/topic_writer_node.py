@@ -3,30 +3,28 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.state.email_state import EmailState
 from app.core.config import settings
 
-def draft_response_node(state: EmailState) -> EmailState:
+def draft_topic_email_node(state: EmailState) -> EmailState:
+    """Generates an outbound email draft based on a topic provided by the user."""
     llm = ChatGroq(
         groq_api_key=settings.GROQ_API_KEY,
         model_name=settings.DEFAULT_MODEL,
-        temperature=0.3
+        temperature=0.4
     )
     
     retrieved_context = "\n".join(state.get("retrieved_docs", []))
     
-    system_prompt = f"""You are an Autonomous AI Email Assistant.
-Your goal is to write a helpful, empathetic, and professional email response to the customer.
+    system_prompt = f"""You are an Autonomous AI Email Assistant writing an outbound email.
+Compose a clear, well-structured email based on the user's requested topic.
 
-RULES:
-1. Base your answer on provided COMPANY POLICIES:
+CONTEXT & POLICIES:
 {retrieved_context}
-2. Output ONLY the response email body.
 """
 
-    human_prompt = f"""Customer Email Details:
-From: {state.get('sender')}
+    human_prompt = f"""Recipient: {state.get('sender')}
 Subject: {state.get('subject')}
-Body: {state.get('email_body')}
+Topic/Instructions: {state.get('topic')}
 
-Write a draft email response."""
+Write a complete professional draft email body."""
 
     response = llm.invoke([
         SystemMessage(content=system_prompt),
@@ -34,11 +32,11 @@ Write a draft email response."""
     ])
     
     draft_text = response.content.strip()
-    print("✍️ [Writer Node] Draft generated.")
+    print("✍️ [Topic Writer Node] Outbound draft created.")
     
     return {
         **state,
         "draft_response": draft_text,
-        "status": "pending_review",  
+        "status": "pending_review",
         "iteration_count": state.get("iteration_count", 0) + 1
     }

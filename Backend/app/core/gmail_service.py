@@ -34,8 +34,7 @@ class GmailService:
                 self.creds.refresh(Request())
             elif os.path.exists(self.credentials_path):
                 flow = InstalledAppFlow.from_client_secrets_file(self.credentials_path, SCOPES)
-                self.creds = flow.run_local_server(port=0) # type: ignore
-                # Save the token for future use
+                self.creds = flow.run_local_server(port=0) 
                 with open(self.token_path, "w") as token:
                     token.write(self.creds.to_json())
             else:
@@ -82,6 +81,40 @@ class GmailService:
 
         except Exception as e:
             print(f"❌ [GmailService] Error fetching unread emails: {str(e)}")
+            return []
+
+    def fetch_email_history(self, max_results: int = 15):
+        """Fetches last N emails from sent and inbox for history overview."""
+        if not self.service:
+            return []
+
+        try:
+            results = self.service.users().messages().list(
+                userId="me", maxResults=max_results
+            ).execute()
+            messages = results.get("messages", [])
+            
+            history = []
+            for msg in messages:
+                msg_data = self.service.users().messages().get(
+                    userId="me", id=msg["id"], format="full"
+                ).execute()
+                
+                headers = msg_data.get("payload", {}).get("headers", [])
+                subject = next((h["value"] for h in headers if h["name"].lower() == "subject"), "No Subject")
+                sender = next((h["value"] for h in headers if h["name"].lower() == "from"), "Unknown Sender")
+                snippet = msg_data.get("snippet", "")
+                
+                history.append({
+                    "thread_id": msg_data.get("threadId"),
+                    "email_id": msg["id"],
+                    "sender": sender,
+                    "subject": subject,
+                    "snippet": snippet
+                })
+            return history
+        except Exception as e:
+            print(f"❌ [GmailService] Error fetching email history: {str(e)}")
             return []
 
     def send_email(self, to_email: str, subject: str, body_text: str, thread_id: str = None) -> bool:

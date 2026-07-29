@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "AgenticMail-HITL"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
+    LOG_LEVEL: str = "INFO"
     
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     QDRANT_URL: str = os.getenv("QDRANT_URL", "http://localhost:6333")
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
 settings = Settings()
