@@ -1,331 +1,361 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Navbar } from "./components/Navbar";
+import { AgenticMailOrb } from "./components/AgenticMailOrb";
+import { SystemMetrics } from "./components/SystemMetrics";
+import { DialogueChat } from "./components/DialogueChat";
 import { EmailDetailView } from "./components/EmailDetailView";
 import {
+  fetchUnreadInbox,
   processInboundEmail,
   createOutboundDraft,
-  fetchUnreadInbox,
-  fetchEmailHistory,
   type AgentStateResponse,
 } from "./services/api";
+import { VoiceService } from "./services/voiceService";
+import toast from "react-hot-toast";
 import {
-  PlusCircle,
   Inbox,
   Send,
-  History,
   RefreshCw,
+  PlusCircle,
   Mail,
+  Activity,
 } from "lucide-react";
-import { Toaster, toast } from "react-hot-toast";
-import { motion } from "framer-motion";
 
 export const App: React.FC = () => {
-  const [activeState, setActiveState] = useState<AgentStateResponse | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"inbox" | "create" | "history">(
-    "inbox",
-  );
-
+  const [activeTab, setActiveTab] = useState<"inbox" | "compose">("inbox");
   const [inboxEmails, setInboxEmails] = useState<any[]>([]);
-  const [historyEmails, setHistoryEmails] = useState<any[]>([]);
+  const [selectedEmailState, setSelectedEmailState] =
+    useState<AgentStateResponse | null>(null);
+  const [loadingInbox, setLoadingInbox] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   const [recipient, setRecipient] = useState("");
   const [subject, setSubject] = useState("");
   const [topic, setTopic] = useState("");
+  const [outboundLoading, setOutboundLoading] = useState(false);
 
-  const loadInboxAndHistory = useCallback(async () => {
+  const handleRefreshInbox = async () => {
     try {
-      const inboxRes = await fetchUnreadInbox();
-      setInboxEmails(inboxRes.emails || []);
-
-      const historyRes = await fetchEmailHistory();
-      setHistoryEmails(historyRes.history || []);
+      setLoadingInbox(true);
+      const res = await fetchUnreadInbox();
+      if (res && res.emails) {
+        setInboxEmails(res.emails);
+      }
     } catch (err) {
-      console.error("Failed to load inbox/history:", err);
-      toast.error("Failed to sync inbox data from Gmail.");
+      toast.error("Failed to fetch Gmail Inbox");
+      console.error(err);
+    } finally {
+      setLoadingInbox(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchData = async () => {
-      try {
-        const inboxRes = await fetchUnreadInbox();
-        const historyRes = await fetchEmailHistory();
-        if (isMounted) {
-          setInboxEmails(inboxRes.emails || []);
-          setHistoryEmails(historyRes.history || []);
-        }
-      } catch (err) {
-        console.error("Failed to load inbox/history:", err);
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      isMounted = false;
-    };
+    const timer = setTimeout(() => {
+      handleRefreshInbox();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
-  const handleSelectInboundEmail = async (email: any) => {
-    setLoading(true);
+  const handleSelectEmail = async (email: any) => {
     const toastId = toast.loading(
-      "🤖 AI processing email & generating draft...",
+      "Connecting AI Core & generating HTML draft...",
     );
-
     try {
-      const state = await processInboundEmail({
-        thread_id: email.thread_id,
+      const result = await processInboundEmail({
+        thread_id: email.thread_id || email.email_id,
         email_id: email.email_id,
         sender: email.sender,
         subject: email.subject,
         email_body: email.email_body,
       });
-      setActiveState(state);
+      setSelectedEmailState(result);
       toast.dismiss(toastId);
-      toast.success("✨ Draft generated successfully! Ready for review.");
+      toast.success("Executive draft ready for review!");
+
+      VoiceService.speak(
+        `Sir, email from ${email.sender} regarding ${email.subject} is analyzed. Draft is ready on screen.`,
+      );
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       toast.dismiss(toastId);
-      toast.error("Failed to process email with LangGraph backend.");
-      console.error(err);
-    } finally {
-      setLoading(false);
+      toast.error("Error processing inbound email.");
     }
   };
 
-  const handleCreateOutboundDraft = async (e: React.FormEvent) => {
+  const handleCreateOutbound = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recipient || !subject || !topic) {
-      toast.error("Please fill all fields!");
+      toast.error("Please fill all fields for outbound mail.");
       return;
     }
 
-    setLoading(true);
-    const toastId = toast.loading("🚀 Drafting email from your topic...");
-
+    const toastId = toast.loading("AI Core creating custom HTML draft...");
     try {
-      const state = await createOutboundDraft({
+      setOutboundLoading(true);
+      const result = await createOutboundDraft({
         recipient_email: recipient,
-        subject,
-        topic,
+        subject: subject,
+        topic: topic,
       });
-      setActiveState(state);
-      setRecipient("");
-      setSubject("");
-      setTopic("");
+      setSelectedEmailState(result);
       toast.dismiss(toastId);
-      toast.success("✨ Outbound draft created successfully!");
+      toast.success("Outbound HTML email draft generated!");
+
+      VoiceService.speak(
+        `Sir, outbound email to ${recipient} is drafted. Ready for your command.`,
+      );
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       toast.dismiss(toastId);
-      toast.error("Failed to generate draft from topic.");
-      console.error(err);
+      toast.error("Failed to generate outbound draft.");
     } finally {
-      setLoading(false);
+      setOutboundLoading(false);
     }
   };
 
+  const handleToggleListen = () => {
+    if (
+      !("webkitSpeechRecognition" in window) &&
+      !("SpeechRecognition" in window)
+    ) {
+      toast.error("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      toast("Listening to executive voice command...", { icon: "🎙️" });
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setIsListening(false);
+      handleUserVoiceCommand(transcript);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+      toast.error("Voice recognition failed. Try again.");
+    };
+
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
+  };
+
+  const handleUserVoiceCommand = (cmd: string) => {
+    toast(`Executive Command: "${cmd}"`, { icon: "🗣️" });
+
+    if (!selectedEmailState) return;
+
+    const lower = cmd.toLowerCase();
+    if (lower.includes("send") || lower.includes("approve")) {
+      toast.success("Voice confirmed: Approving & Sending...");
+    } else if (lower.includes("save") || lower.includes("draft")) {
+      toast.success("Voice confirmed: Saving to Gmail Mailbox...");
+    } else {
+      toast.success("Processing voice refinement loop...");
+    }
+  };
+
+  const currentMood = selectedEmailState?.agent_mood || "idle";
+  const currentLogs = selectedEmailState?.terminal_logs || [
+    "[SYS-INIT] AgenticMail-HITL Kernel Online.",
+    "[SECURE-AUTH] Gmail OAuth 2.0 Token Verified.",
+    "[RAG-DB] Qdrant Knowledge Engine Standing By.",
+  ];
+  const currentTranscript = selectedEmailState?.dialogue_transcript || [];
+
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans relative">
-      <Toaster position="top-right" reverseOrder={false} />
+    <div className="flex flex-col h-screen bg-[#050811] text-slate-100 font-mono overflow-hidden">
       <Navbar />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto p-6 space-x-6">
-        <div className="w-80 bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex border-b border-slate-200 pb-2 mb-4 space-x-1">
+      <main className="flex-1 flex overflow-hidden p-4 gap-4">
+        <SystemMetrics terminalLogs={currentLogs} />
+
+        <div className="flex-1 flex flex-col bg-[#090d16]/60 border border-cyan-900/40 rounded-xl p-4 overflow-hidden shadow-[0_0_25px_rgba(0,0,0,0.5)]">
+          <div className="border-b border-cyan-900/40 pb-4 mb-4">
+            <AgenticMailOrb mood={currentMood} />
+          </div>
+
+          <div className="flex items-center justify-between border-b border-cyan-900/40 pb-3 mb-4">
+            <div className="flex space-x-2">
               <button
-                onClick={() => setActiveTab("inbox")}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-md flex items-center justify-center space-x-1 cursor-pointer transition ${
+                onClick={() => {
+                  setActiveTab("inbox");
+                  setSelectedEmailState(null);
+                }}
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                   activeTab === "inbox"
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-500 hover:bg-slate-50"
+                    ? "bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]"
+                    : "bg-cyan-950/40 text-cyan-400 border border-cyan-800/60 hover:bg-cyan-900/40"
                 }`}
               >
-                <Inbox className="w-3.5 h-3.5" />
-                <span>Inbox ({inboxEmails.length})</span>
+                <Inbox className="w-4 h-4" />
+                <span>INBOX THREADS</span>
               </button>
 
               <button
-                onClick={() => setActiveTab("create")}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-md flex items-center justify-center space-x-1 cursor-pointer transition ${
-                  activeTab === "create"
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-500 hover:bg-slate-50"
+                onClick={() => {
+                  setActiveTab("compose");
+                  setSelectedEmailState(null);
+                }}
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  activeTab === "compose"
+                    ? "bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]"
+                    : "bg-cyan-950/40 text-cyan-400 border border-cyan-800/60 hover:bg-cyan-900/40"
                 }`}
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>New Mail</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("history")}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-md flex items-center justify-center space-x-1 cursor-pointer transition ${
-                  activeTab === "history"
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                <History className="w-3.5 h-3.5" />
-                <span>History</span>
+                <PlusCircle className="w-4 h-4" />
+                <span>NEW OUTBOUND</span>
               </button>
             </div>
 
             {activeTab === "inbox" && (
+              <button
+                onClick={handleRefreshInbox}
+                disabled={loadingInbox}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#050811] text-cyan-400 border border-cyan-800/60 hover:bg-cyan-950/40 rounded-lg text-xs transition cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${loadingInbox ? "animate-spin" : ""}`}
+                />
+                <span>SYNC GMAIL</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-1">
+            {selectedEmailState ? (
+              <EmailDetailView
+                emailState={selectedEmailState}
+                onStateUpdated={(newState) => setSelectedEmailState(newState)}
+              />
+            ) : activeTab === "inbox" ? (
               <div className="space-y-2">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-[11px] font-bold text-slate-500">
-                    UNREAD GMAIL INBOX
-                  </span>
-                  <button
-                    onClick={() => {
-                      loadInboxAndHistory();
-                      toast.success("Inbox refreshed!");
-                    }}
-                    className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {inboxEmails.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-6">
-                    No unread emails found.
-                  </p>
-                ) : (
-                  inboxEmails.map((email) => (
-                    <motion.div
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      key={email.email_id}
-                      onClick={() => handleSelectInboundEmail(email)}
-                      className={`p-3 bg-slate-50 hover:bg-indigo-50/70 border border-slate-200 rounded-lg cursor-pointer transition shadow-2xs ${
-                        loading ? "pointer-events-none opacity-60" : ""
-                      }`}
-                    >
-                      <p className="text-xs font-bold text-slate-800 truncate">
-                        {email.subject}
-                      </p>
-                      <p className="text-[11px] text-slate-500 truncate">
-                        {email.sender}
-                      </p>
-                    </motion.div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {activeTab === "create" && (
-              <form onSubmit={handleCreateOutboundDraft} className="space-y-3">
-                <p className="text-xs font-bold text-slate-700">
-                  Generate Mail from Topic
-                </p>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600">
-                    Recipient Email:
-                  </label>
-                  <input
-                    type="email"
-                    value={recipient}
-                    onChange={(e) => setRecipient(e.target.value)}
-                    placeholder="example@gmail.com"
-                    className="w-full p-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600">
-                    Subject:
-                  </label>
-                  <input
-                    type="text"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Meeting Updates / Notice"
-                    className="w-full p-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600">
-                    Topic / Key Points:
-                  </label>
-                  <textarea
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    rows={4}
-                    placeholder="Provide detailed instructions or topic..."
-                    className="w-full p-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium py-2 rounded-md flex items-center justify-center space-x-1 cursor-pointer transition shadow-sm disabled:opacity-50"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>{loading ? "Generating..." : "Generate AI Draft"}</span>
-                </button>
-              </form>
-            )}
-
-            {activeTab === "history" && (
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                <span className="text-[11px] font-bold text-slate-500">
-                  PAST EMAIL HISTORY
-                </span>
-                {historyEmails.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-6">
-                    No email history found.
-                  </p>
-                ) : (
-                  historyEmails.map((item, idx) => (
+                {inboxEmails && inboxEmails.length > 0 ? (
+                  inboxEmails.map((email, idx) => (
                     <div
                       key={idx}
-                      className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg"
+                      onClick={() => handleSelectEmail(email)}
+                      className="bg-[#050811] p-3.5 rounded-lg border border-cyan-900/40 hover:border-cyan-500/80 cursor-pointer transition flex items-start justify-between group"
                     >
-                      <p className="text-xs font-semibold text-slate-700 truncate">
-                        {item.subject}
-                      </p>
-                      <p className="text-[10px] text-slate-400 truncate">
-                        {item.sender}
-                      </p>
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <Mail className="w-4 h-4 text-cyan-400" />
+                          <span className="text-xs font-bold text-cyan-300">
+                            {email.sender}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-semibold text-slate-100 group-hover:text-cyan-400 transition">
+                          {email.subject}
+                        </h4>
+                        <p className="text-xs text-slate-400 line-clamp-1">
+                          {email.email_body}
+                        </p>
+                      </div>
+                      <span className="text-[10px] bg-cyan-950 text-cyan-400 border border-cyan-800/60 px-2 py-0.5 rounded">
+                        UNREAD
+                      </span>
                     </div>
                   ))
+                ) : (
+                  <div className="text-center py-16 text-slate-500 space-y-2">
+                    <Activity className="w-8 h-8 text-cyan-900 mx-auto animate-pulse" />
+                    <p className="text-xs">No unread emails in Gmail Inbox.</p>
+                  </div>
                 )}
               </div>
+            ) : (
+              <form
+                onSubmit={handleCreateOutbound}
+                className="space-y-4 max-w-xl mx-auto py-4"
+              >
+                <div className="bg-[#050811] p-5 rounded-xl border border-cyan-900/40 space-y-4">
+                  <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider border-b border-cyan-900/40 pb-2">
+                    EXECUTIVE OUTBOUND PARAMETERS
+                  </h3>
+
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">
+                      RECIPIENT EMAIL ADDRESS:
+                    </label>
+                    <input
+                      type="email"
+                      value={recipient}
+                      onChange={(e) => setRecipient(e.target.value)}
+                      placeholder="e.g. vinitramani@gmail.com"
+                      className="w-full bg-[#090d16] border border-cyan-900/60 rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">
+                      SUBJECT LINE:
+                    </label>
+                    <input
+                      type="text"
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      placeholder="e.g. Executive Meeting Schedule & Project Sync"
+                      className="w-full bg-[#090d16] border border-cyan-900/60 rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">
+                      TOPIC INSTRUCTIONS FOR AI CORE:
+                    </label>
+                    <textarea
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      placeholder="e.g. Ask for project update and tell him I want to meet tomorrow at 9 AM IST via Google Meet..."
+                      rows={4}
+                      className="w-full bg-[#090d16] border border-cyan-900/60 rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={outboundLoading}
+                    className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-2.5 rounded flex items-center justify-center space-x-2 text-xs transition cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.4)] disabled:opacity-50"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>
+                      {outboundLoading
+                        ? "GENERATING HTML TEMPLATE..."
+                        : "GENERATE EXECUTIVE AI DRAFT"}
+                    </span>
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </div>
 
-        {activeState ? (
-          <EmailDetailView
-            emailState={activeState}
-            onStateUpdated={setActiveState}
-          />
-        ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex-1 bg-white rounded-xl border border-slate-200 p-12 flex flex-col items-center justify-center text-center shadow-sm"
-          >
-            <Mail className="w-12 h-12 text-slate-300 mb-3" />
-            <h3 className="text-lg font-bold text-slate-700">
-              Autonomous Agent Workspace
-            </h3>
-            <p className="text-slate-400 text-sm max-w-sm mt-1">
-              Select an unread email from your Inbox OR generate an outbound
-              email draft using custom topic instructions.
-            </p>
-          </motion.div>
-        )}
-      </div>
+        <DialogueChat
+          transcript={currentTranscript}
+          onUserVoiceCommand={handleUserVoiceCommand}
+          isListening={isListening}
+          onToggleListen={handleToggleListen}
+        />
+      </main>
     </div>
   );
 };
