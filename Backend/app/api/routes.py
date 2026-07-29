@@ -10,7 +10,7 @@ from app.api.schemas import (
 )
 from app.core.gmail_service import gmail_service
 
-router = APIRouter(prefix="/email-agent", tags=["Jarvis Email Agent Operations"])
+router = APIRouter(prefix="/email-agent", tags=["AgenticMail-HITL Operations"])
 
 
 @router.post("/process-email", response_model=AgentStateResponse)
@@ -34,7 +34,7 @@ async def process_inbound_email(payload: ProcessEmailRequest):
         "is_sent": False,
         "error_message": None,
         "agent_mood": "thinking",
-        "dialogue_transcript": [f"JARVIS: Sir, incoming email detected from {payload.sender}. Initiating analysis..."],
+        "dialogue_transcript": [f"JARVIS: Sir, incoming email detected from {payload.sender}. Initiating AgenticMail-HITL analysis..."],
         "terminal_logs": ["[SYS-INIT] Inbound email stream connected. Launching RAG & LLM Engine..."]
     }
     

@@ -9,7 +9,6 @@ app = FastAPI(
     description="AgenticMail-HITL (Sci-Fi Jarvis Edition) Backend API"
 )
 
-# OWASP Security Headers Middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response: Response = await call_next(request)
@@ -35,7 +34,7 @@ def root():
     return {
         "status": "online",
         "system": settings.PROJECT_NAME,
-        "mode": "JARVIS / ARYA SCI-FI EDITION",
+        "mode": "AgenticMail-HITL | JARVIS SCI-FI EDITION",
         "security": "OWASP Top 10 Compliant",
         "docs": "/docs"
     }
