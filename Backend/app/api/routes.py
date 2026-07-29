@@ -1,5 +1,5 @@
 import time
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from app.graph.email_graph import email_agent_app
 from app.api.schemas import (
     ProcessEmailRequest,
@@ -42,7 +42,6 @@ async def process_inbound_email(payload: ProcessEmailRequest):
 
 @router.post("/generate-outbound-draft", response_model=AgentStateResponse)
 async def generate_outbound_draft(payload: OutboundTopicRequest):
-    """Generates an email from user's custom topic/instructions and pauses at HITL."""
     generated_thread_id = f"outbound_{int(time.time())}"
     config = {"configurable": {"thread_id": generated_thread_id}}
     
@@ -86,10 +85,12 @@ async def handle_hitl_action(payload: HITLActionRequest):
         if not payload.feedback:
             raise HTTPException(status_code=400, detail="Feedback is required for revision.")
         new_status = "revision_requested"
+    elif action_type == "save_draft":
+        new_status = "save_draft"
     elif action_type == "reject":
         new_status = "rejected"
     else:
-        raise HTTPException(status_code=400, detail="Invalid action.")
+        raise HTTPException(status_code=400, detail="Invalid action type.")
         
     update_data = {
         "status": new_status,
@@ -112,6 +113,5 @@ async def fetch_inbox_messages():
 
 @router.get("/email-history")
 async def get_email_history():
-    """Returns past emails for viewing history."""
     history = gmail_service.fetch_email_history()
     return {"status": "success", "count": len(history), "history": history}

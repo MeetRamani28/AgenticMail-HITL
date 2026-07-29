@@ -7,6 +7,8 @@ import {
   BookOpen,
   Send,
   Sparkles,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -23,8 +25,40 @@ export const EmailDetailView: React.FC<Props> = ({
   const [feedback, setFeedback] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [showFeedbackInput, setShowFeedbackInput] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleSpeakDraft = () => {
+    if (!("speechSynthesis" in window)) {
+      toast.error("Your browser does not support Speech Synthesis.");
+      return;
+    }
+
+    const currentDraft =
+      emailState.revised_draft || emailState.draft_response || "";
+    const plainText = currentDraft.replace(/<[^>]*>?/gm, "");
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(
+      `Here is the draft response: ${plainText}. Would you like to approve and send this email, or request edits?`,
+    );
+    utterance.rate = 0.95;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleStopSpeech = () => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  };
 
   const handleAction = async (action: "approve" | "revise" | "reject") => {
+    handleStopSpeech();
     const loadingToast = toast.loading(
       action === "approve"
         ? "Sending approved email via Gmail API..."
@@ -63,6 +97,16 @@ export const EmailDetailView: React.FC<Props> = ({
   };
 
   const currentDraft = emailState.revised_draft || emailState.draft_response;
+
+  // OWASP protection helper against injection tags
+  const renderSafeHTML = (htmlContent: string) => {
+    // Strip script tags cleanly if any leaked from LLM
+    const sanitized = htmlContent.replace(
+      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+      "",
+    );
+    return { __html: sanitized };
+  };
 
   return (
     <motion.div
@@ -141,13 +185,43 @@ export const EmailDetailView: React.FC<Props> = ({
                 : "AI Generated Draft"}
             </h3>
           </div>
-          <span className="text-xs text-slate-400">
-            Iteration: #{emailState.iteration_count}
-          </span>
+          <div className="flex items-center space-x-3">
+            {isSpeaking ? (
+              <button
+                onClick={handleStopSpeech}
+                className="px-2.5 py-1 bg-red-100 text-red-700 hover:bg-red-200 text-xs font-semibold rounded-md flex items-center space-x-1 cursor-pointer transition"
+              >
+                <VolumeX className="w-3.5 h-3.5" />
+                <span>Stop Reading</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleSpeakDraft}
+                className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold rounded-md flex items-center space-x-1 cursor-pointer transition"
+              >
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>Listen to Draft</span>
+              </button>
+            )}
+            <span className="text-xs text-slate-400">
+              Iteration: #{emailState.iteration_count}
+            </span>
+          </div>
         </div>
 
         <div className="bg-slate-900 text-slate-100 p-4 rounded-lg text-sm whitespace-pre-wrap font-mono">
-          {currentDraft || "Draft is generating..."}
+          {currentDraft ? (
+            currentDraft.includes("<") && currentDraft.includes(">") ? (
+              <div
+                className="bg-white text-slate-900 p-4 rounded border font-sans"
+                dangerouslySetInnerHTML={renderSafeHTML(currentDraft)}
+              />
+            ) : (
+              currentDraft
+            )
+          ) : (
+            "Draft is generating..."
+          )}
         </div>
 
         {emailState.status === "pending_review" && (

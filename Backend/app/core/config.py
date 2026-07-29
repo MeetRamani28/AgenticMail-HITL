@@ -1,7 +1,6 @@
 import os
 from pydantic_settings import BaseSettings
 
-
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AgenticMail-HITL"
     VERSION: str = "1.0.0"
@@ -14,10 +13,12 @@ class Settings(BaseSettings):
     
     DEFAULT_MODEL: str = "llama-3.3-70b-versatile"
     
+    ALLOWED_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]
+    RATE_LIMIT_PER_MINUTE: int = 60
+
     class Config:
         env_file = ".env"
         case_sensitive = True
         extra = "ignore"
-
 
 settings = Settings()

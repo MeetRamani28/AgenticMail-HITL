@@ -74,7 +74,6 @@ export const App: React.FC = () => {
 
   const handleSelectInboundEmail = async (email: any) => {
     setLoading(true);
-    // ખબરો બતાવવા માટે ફક્ત Toast Notification નો જ ઉપયોગ
     const toastId = toast.loading(
       "🤖 AI processing email & generating draft...",
     );

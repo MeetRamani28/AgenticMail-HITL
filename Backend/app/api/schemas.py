@@ -1,22 +1,30 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
+import re
+
+def sanitize_input(v: str) -> str:
+    """OWASP Sanitization: Prevent HTML/Script injection in string parameters."""
+    if not isinstance(v, str):
+        return v
+    clean = re.sub(r'<script.*?>.*?</script>', '', v, flags=re.DOTALL | re.IGNORECASE)
+    return clean.strip()
 
 class ProcessEmailRequest(BaseModel):
-    thread_id: str
-    email_id: str
-    sender: str
-    subject: str
-    email_body: str
+    thread_id: str = Field(..., min_length=1, max_length=128)
+    email_id: str = Field(..., min_length=1, max_length=128)
+    sender: str = Field(..., min_length=1, max_length=255)
+    subject: str = Field(..., max_length=255)
+    email_body: str = Field(..., max_length=10000)
 
 class OutboundTopicRequest(BaseModel):
-    recipient_email: str = Field(..., description="Target email address")
-    subject: str = Field(..., description="Email Subject")
-    topic: str = Field(..., description="Detailed instructions/topic for LLM generation")
+    recipient_email: EmailStr = Field(..., description="Target email address")
+    subject: str = Field(..., min_length=1, max_length=255)
+    topic: str = Field(..., min_length=1, max_length=5000)
 
 class HITLActionRequest(BaseModel):
-    thread_id: str
-    action: str = Field(..., description="'approve', 'revise', or 'reject'")
-    feedback: Optional[str] = None
+    thread_id: str = Field(..., min_length=1, max_length=128)
+    action: str = Field(..., description="'approve', 'revise', 'reject', or 'save_draft'")
+    feedback: Optional[str] = Field(None, max_length=2000)
 
 class AgentStateResponse(BaseModel):
     thread_id: str

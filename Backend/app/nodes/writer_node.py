@@ -12,33 +12,36 @@ def draft_response_node(state: EmailState) -> EmailState:
     
     retrieved_context = "\n".join(state.get("retrieved_docs", []))
     
-    system_prompt = f"""You are an Autonomous AI Email Assistant.
-Your goal is to write a helpful, empathetic, and professional email response to the customer.
+    system_prompt = f"""You are an Expert Corporate AI Email Assistant.
+Your task is to write a highly professional, modern HTML email response.
 
-RULES:
-1. Base your answer on provided COMPANY POLICIES:
+COMPANY POLICIES TO COMPLY WITH:
 {retrieved_context}
-2. Output ONLY the response email body.
+
+DESIGN & TEMPLATE INSTRUCTIONS:
+1. Output a beautifully designed modern HTML email template body.
+2. Use inline CSS styles, neutral background container (#f8fafc), dark text (#0f172a), rounded cards (#ffffff), proper padding, and clean typography (Arial/sans-serif).
+3. Do NOT wrap the output in markdown codeblocks (no ```html). Return ONLY raw HTML starting with <div> or <table>.
 """
 
-    human_prompt = f"""Customer Email Details:
+    human_prompt = f"""Inbound Email Details:
 From: {state.get('sender')}
 Subject: {state.get('subject')}
 Body: {state.get('email_body')}
 
-Write a draft email response."""
+Generate a modern HTML formatted reply."""
 
     response = llm.invoke([
         SystemMessage(content=system_prompt),
         HumanMessage(content=human_prompt)
     ])
     
-    draft_text = response.content.strip()
-    print("✍️ [Writer Node] Draft generated.")
+    draft_html = response.content.strip().replace("```html", "").replace("```", "")
+    print("✍️ [Writer Node] Modern HTML Draft generated.")
     
     return {
         **state,
-        "draft_response": draft_text,
+        "draft_response": draft_html,
         "status": "pending_review",  
         "iteration_count": state.get("iteration_count", 0) + 1
     }
