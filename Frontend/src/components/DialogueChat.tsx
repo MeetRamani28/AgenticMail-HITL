@@ -1,39 +1,29 @@
-import React, { useState } from "react";
-import { Mic, Send, Volume2, MessageSquare } from "lucide-react";
+import React from "react";
+import { Mic, Volume2, MessageSquare, Radio } from "lucide-react";
 
 interface Props {
   transcript: string[];
-  onUserVoiceCommand: (command: string) => void;
   isListening: boolean;
   onToggleListen: () => void;
 }
 
 export const DialogueChat: React.FC<Props> = ({
   transcript,
-  onUserVoiceCommand,
   isListening,
   onToggleListen,
 }) => {
-  const [inputText, setInputText] = useState("");
-
-  const handleSendText = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim()) return;
-    onUserVoiceCommand(inputText.trim());
-    setInputText("");
-  };
-
   return (
-    <div className="w-80 bg-[#090d16]/80 border border-cyan-900/40 rounded-xl p-4 flex flex-col justify-between h-full shadow-[0_0_25px_rgba(0,0,0,0.5)]">
+    <div className="w-80 bg-[#090d16]/80 border border-cyan-900/40 rounded-xl p-4 flex flex-col justify-between h-full shadow-[0_0_25px_rgba(0,0,0,0.5)] select-none">
       <div className="flex items-center justify-between border-b border-cyan-900/40 pb-2 mb-3">
         <div className="flex items-center space-x-2 text-cyan-400">
           <MessageSquare className="w-4 h-4" />
           <span className="text-xs font-bold tracking-widest uppercase font-mono">
-            LIVE TRANSCRIPT
+            VOICE-ONLY TRANSCRIPT
           </span>
         </div>
-        <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-700/60 px-1.5 py-0.5 rounded font-mono uppercase">
-          Voice-to-Voice
+        <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-700/60 px-1.5 py-0.5 rounded font-mono uppercase flex items-center space-x-1">
+          <Radio className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
+          <span>AUDIO LINK</span>
         </span>
       </div>
 
@@ -63,7 +53,7 @@ export const DialogueChat: React.FC<Props> = ({
                       isAgent ? "text-cyan-400" : "text-emerald-400"
                     }`}
                   >
-                    {isAgent ? "AGENTIC-MAIL CORE" : "EXECUTIVE (USER)"}
+                    {isAgent ? "AGENTIC-MAIL CORE" : "EXECUTIVE (VOICE)"}
                   </span>
                   {isAgent && (
                     <Volume2 className="w-3 h-3 text-cyan-400 opacity-70" />
@@ -75,42 +65,29 @@ export const DialogueChat: React.FC<Props> = ({
           })
         ) : (
           <p className="text-slate-500 text-center py-10 text-[11px] font-mono">
-            No dialogue history. Speak or type a command to start.
+            No dialogue history. Press the executive microphone to speak.
           </p>
         )}
       </div>
 
-      <div className="mt-3 pt-2 border-t border-cyan-900/40">
-        <form onSubmit={handleSendText} className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={onToggleListen}
-            className={`p-2 rounded-lg border transition ${
-              isListening
-                ? "bg-red-600 border-red-500 text-white animate-pulse"
-                : "bg-cyan-950 border-cyan-800 text-cyan-400 hover:bg-cyan-900"
-            }`}
-            title="Toggle Voice Microphone"
-          >
-            <Mic className="w-4 h-4" />
-          </button>
-
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="Type or speak executive command..."
-            className="flex-1 bg-[#050811] border border-cyan-900/60 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 font-mono focus:outline-none focus:border-cyan-500"
-          />
-
-          <button
-            type="submit"
-            className="p-2 bg-cyan-600 hover:bg-cyan-500 text-black font-bold rounded-lg transition"
-            title="Send Command"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
+      <div className="mt-3 pt-3 border-t border-cyan-900/40 flex flex-col items-center">
+        <button
+          type="button"
+          onClick={onToggleListen}
+          className={`w-full py-3 rounded-xl border font-bold font-mono tracking-widest text-xs flex items-center justify-center space-x-2 transition cursor-pointer shadow-lg ${
+            isListening
+              ? "bg-red-600 border-red-500 text-white animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.6)]"
+              : "bg-cyan-950 border-cyan-600 text-cyan-300 hover:bg-cyan-900/80 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+          }`}
+        >
+          <Mic className={`w-4 h-4 ${isListening ? "animate-bounce" : ""}`} />
+          <span>
+            {isListening ? "LISTENING... SPEAK NOW" : "PRESS & SPEAK COMMAND"}
+          </span>
+        </button>
+        <p className="text-[9px] text-slate-500 mt-2 font-mono uppercase text-center">
+          Say: "Approve & Send" • "Save Draft" • "Change to 10 AM" • "Reject"
+        </p>
       </div>
     </div>
   );

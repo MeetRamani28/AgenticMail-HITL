@@ -76,7 +76,7 @@ export const SystemMetrics: React.FC<Props> = ({ terminalLogs }) => {
         </div>
       </div>
 
-      <div className="mt-4 flex-1 flex flex-col min-h-[220px] bg-[#050811] rounded-lg border border-cyan-900/40 p-3 overflow-hidden">
+      <div className="mt-4 flex-1 flex flex-col min-h-55 bg-[#050811] rounded-lg border border-cyan-900/40 p-3 overflow-hidden">
         <div className="flex items-center space-x-1.5 text-cyan-400 text-xs font-mono border-b border-cyan-900/40 pb-1.5 mb-2">
           <Terminal className="w-3.5 h-3.5" />
           <span className="tracking-wider uppercase font-bold">

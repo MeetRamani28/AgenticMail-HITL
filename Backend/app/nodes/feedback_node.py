@@ -49,6 +49,7 @@ Rewrite the draft following the feedback."""
         **state,
         "revised_draft": new_revised_draft,
         "status": "pending_review",
+        "is_sent": state.get("is_sent", False),
         "terminal_logs": logs,
         "dialogue_transcript": transcript,
         "agent_mood": "speaking"

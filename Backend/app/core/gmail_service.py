@@ -186,5 +186,21 @@ class GmailService:
             print(f"❌ [GmailService] Failed to send email: {str(e)}")
             return False
 
+    def mark_as_read(self, email_id: str) -> bool:
+        """Removes the UNREAD label from an email in the official Gmail Mailbox."""
+        if not self.service:
+            return True
+        try:
+            self.service.users().messages().modify(
+                userId="me",
+                id=email_id,
+                body={"removeLabelIds": ["UNREAD"]}
+            ).execute()
+            print(f"📩 [GmailService] Email {email_id} marked as READ in Gmail Mailbox.")
+            return True
+        except Exception as e:
+            print(f"❌ [GmailService] Failed to mark read: {str(e)}")
+            return False
+
 
 gmail_service = GmailService()

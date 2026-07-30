@@ -44,9 +44,10 @@ class AgentStateResponse(BaseModel):
     draft_response: Optional[str] = None
     revised_draft: Optional[str] = None
     retrieved_docs: List[str] = []
-    status: str
-    iteration_count: int
-    is_sent: bool
+    status: str = "processing"
+    iteration_count: int = 0
+    is_sent: bool = False
+    error_message: Optional[str] = None
     agent_mood: str = "idle"
     dialogue_transcript: List[str] = []
     terminal_logs: List[str] = []
